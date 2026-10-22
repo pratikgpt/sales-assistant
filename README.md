@@ -15,7 +15,7 @@ after the customer confirms a specific slot. A human can take over any conversat
 | WhatsApp | WhatsApp Cloud API: webhook in, `POST /{phone-number-id}/messages` out | _to be verified live_ |
 | Instagram | Instagram API with Instagram Login: webhook in, `POST graph.instagram.com/me/messages` out | **Working** (verified 22 Oct 2026: DM in, qualified, routed, reply delivered; read receipts and echoes ignored) |
 | Email | Gmail over IMAP (polled) and SMTP (replies), app password | _to be verified live_ |
-| Calendar | Google Calendar API with a service account; each rep's test calendar is shared with it | _to be verified live_ |
+| Calendar | Google Calendar API with a service account; each rep's test calendar is shared with it | **Working** (verified 22 Oct 2026: Instagram lead offered 3 free slots from Daniel's calendar, picked one, confirmed, event created; a second "YES" created no duplicate) |
 
 If a provider blocks a channel (for example Meta app review), this table will record the exact blocker and the
 attempted setup instead of claiming it works.
