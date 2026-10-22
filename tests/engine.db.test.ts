@@ -52,7 +52,11 @@ async function customer(channel: "whatsapp" | "instagram" | "email", from: strin
 const lead = async (id: string) => (await sql`select * from leads where id = ${id}`)[0];
 const lastReply = async (id: string) => (await sql`select text, status, channel from messages where lead_id = ${id} and direction = 'out' order by created_at desc limit 1`)[0];
 
-beforeAll(ensureSchema);
+beforeAll(async () => {
+  await ensureSchema();
+  // Engine tests use the real rep ids, so earlier runs' bookings would hold the same slots.
+  await sql`truncate contacts, leads, messages, bookings, events, integrations cascade`;
+});
 beforeEach(() => {
   llm.extract.mockReset();
   llm.compose.mockReset().mockImplementation(async ({ goal }: { goal: { kind: string } }) => ({ data: { text: `<${goal.kind}>` }, usage }));

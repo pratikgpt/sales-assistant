@@ -3,5 +3,6 @@ import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
-  test: { environment: "node", env: { DATABASE_URL: "postgres://postgres:dev@localhost:5433/sales" } },
+  // DB test files share one database (and the engine tests truncate it), so run files sequentially.
+  test: { environment: "node", fileParallelism: false, env: { DATABASE_URL: "postgres://postgres:dev@localhost:5433/sales_test" } },
 });
