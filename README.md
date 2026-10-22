@@ -13,7 +13,7 @@ after the customer confirms a specific slot. A human can take over any conversat
 | Channel | Approach | Status |
 |---|---|---|
 | WhatsApp | WhatsApp Cloud API: webhook in, `POST /{phone-number-id}/messages` out | _to be verified live_ |
-| Instagram | Instagram API with Instagram Login: webhook in, `POST graph.instagram.com/me/messages` out | _to be verified live_ |
+| Instagram | Instagram API with Instagram Login: webhook in, `POST graph.instagram.com/me/messages` out | **Working** (verified 22 Oct 2026: DM in, qualified, routed, reply delivered; read receipts and echoes ignored) |
 | Email | Gmail over IMAP (polled) and SMTP (replies), app password | _to be verified live_ |
 | Calendar | Google Calendar API with a service account; each rep's test calendar is shared with it | _to be verified live_ |
 
@@ -127,7 +127,18 @@ Webhooks need a public HTTPS URL (the deployment, or a tunnel such as `cloudflar
    account id.
 3. Configure webhooks: callback `https://<host>/api/webhooks/instagram`, verify token = `INSTAGRAM_VERIFY_TOKEN`,
    subscribe to `messages`.
-4. Before App Review the app is in development mode: test senders need a role on the app (App roles → Instagram testers).
+4. Add both the business account and a second test account as **Instagram testers** (App roles); each accepts the
+   invite at instagram.com → Settings → Apps and websites → Tester invites.
+
+Three things that are easy to miss (each one silently stopped DMs from arriving while setting this up):
+
+- **The app must be Live.** In development mode the dashboard's *Test* button works but real DMs never produce a
+  webhook. Publishing needs a privacy policy URL ([PRIVACY.md](PRIVACY.md)); with standard access only accounts
+  that have a role on the app can message it, which is enough for testing without App Review.
+- **The account must be subscribed to the app**, separately from the dashboard webhook settings:
+  `curl -X POST "https://graph.instagram.com/v23.0/me/subscribed_apps?subscribed_fields=messages" -H "Authorization: Bearer $INSTAGRAM_ACCESS_TOKEN"`
+- **Webhooks are signed with the Meta app secret** (App settings → Basic), not the Instagram app secret. The
+  webhook accepts a signature from either, so both can be configured.
 </details>
 
 <details>
