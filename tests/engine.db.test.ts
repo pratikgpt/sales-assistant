@@ -173,6 +173,16 @@ describe("conversation engine", () => {
     expect(l.offered_slots).toHaveLength(3);
   });
 
+  it("shows a WhatsApp delivery failure on the message and the connection status", async () => {
+    const { updateDeliveryStatus } = await import("@/lib/store");
+    send.sendWhatsApp.mockResolvedValueOnce("wamid.locked");
+    const { leadId } = await customer("whatsapp", `93${Date.now()}`, "hello", none);
+    await updateDeliveryStatus("whatsapp", "wamid.locked", "failed", "Business Account locked");
+    expect(await lastReply(leadId)).toMatchObject({ status: "failed" });
+    const [i] = await sql`select status, detail from integrations where name = 'whatsapp'`;
+    expect(i).toMatchObject({ status: "error", detail: "Replies not delivered: Business Account locked" });
+  });
+
   it("flags the lead for a human when the model fails, instead of replying with something unchecked", async () => {
     llm.extract.mockRejectedValueOnce(new Error("Output failed validation after one repair attempt"));
     const { leadId } = await ingest({ channel: "email", external_id: randomUUID(), sender: { id: `y${randomUUID()}@example.com` }, text: "hi" });

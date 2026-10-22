@@ -102,7 +102,13 @@ export async function updateDeliveryStatus(channel: Channel, externalId: string,
   const [m] = await sql<{ lead_id: string }[]>`
     update messages set status = ${status}, error = coalesce(${error}, error)
     where channel = ${channel} and external_id = ${externalId} and direction = 'out' returning lead_id`;
-  if (m && status === "failed") await logEvent(sql, m.lead_id, "error", "delivery", `${CHANNEL_LABEL[channel]} reported the reply as not delivered: ${error ?? "no reason given"}`);
+  if (m && status === "failed") {
+    // The send API accepted the message, so only this receipt reveals the failure; surface it in the header too.
+    await logEvent(sql, m.lead_id, "error", "delivery", `${CHANNEL_LABEL[channel]} reported the reply as not delivered: ${error ?? "no reason given"}`);
+    await setIntegration(channel, "error", `Replies not delivered: ${error ?? "no reason given"}`);
+  } else if (m && (status === "delivered" || status === "read")) {
+    await setIntegration(channel, "ok");
+  }
 }
 
 // ---------- Outbound ----------
@@ -127,7 +133,8 @@ export async function sendReply(leadId: string, text: string, author: "assistant
           ? await sendInstagram(row.external_id, text)
           : await sendEmail(row.external_id, text, row.thread);
     await sql`update messages set status = 'sent', external_id = ${externalId || null} where id = ${msg.id}`;
-    await setIntegration(row.channel, "ok");
+    // WhatsApp confirms delivery separately (receipts update the status); other channels have no receipts.
+    if (row.channel !== "whatsapp") await setIntegration(row.channel, "ok");
     await logEvent(sql, leadId, "info", "outbound", `${author === "human" ? "Human" : "Assistant"} reply sent on ${label}`);
     return { ok: true };
   } catch (e) {
