@@ -195,8 +195,10 @@ async function runTurn(lead: LeadRow): Promise<void> {
     }
   } else if (lead.stage === "booking_check") {
     await book(); // reconciles the uncertain booking by reading the calendar; never writes twice
-  } else if (lead.stage === "handoff") {
-    goal = { kind: "answer", context: `${rep} will contact them directly to arrange a time. Do not offer times.` };
+  } else if (lead.stage === "handoff" && q.status === "qualified" && assignment) {
+    // Handed off because the calendar was unavailable, had no free time or a booking failed:
+    // try the calendar again. If it still fails, offer() keeps the handoff and says so.
+    await offer();
   } else if (q.status === "not_qualified") {
     const reasons = q.results.filter((r) => r.outcome === "fail").map((r) => r.text);
     goal = lead.stage === "closed" ? { kind: "answer", context: `We are not the right fit right now because: ${reasons.join("; ")}. Do not offer a meeting.` } : { kind: "decline", reasons };

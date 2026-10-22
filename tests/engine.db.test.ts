@@ -156,6 +156,20 @@ describe("conversation engine", () => {
     expect(i.status).toBe("auth_error");
   });
 
+  it("hands off when the calendar is down, then offers real times once it is back", async () => {
+    cal.freeBusy.mockRejectedValueOnce(new cal.CalendarError("not_configured", "No calendar configured for rep_1"));
+    const t = "Acme Ltd here, need a Power BI dashboard, $8000 budget, starting in 2 months";
+    const ig = `ig-${randomUUID()}`;
+    const { leadId } = await customer("instagram", ig, t, said(t, "M1", { company: ["Acme Ltd", "Acme Ltd"], service: ["dashboards", "Power BI dashboard"], budget_usd: [8000, "$8000"], timeline_months: [2, "in 2 months"] }));
+    expect(await lead(leadId)).toMatchObject({ stage: "handoff", attention: expect.stringMatching(/Calendar unavailable/) });
+    expect((await lastReply(leadId)).text).toMatch(/will contact you/);
+
+    await customer("instagram", ig, "Any update?", none);
+    const l = await lead(leadId);
+    expect(l).toMatchObject({ stage: "offering", attention: null });
+    expect(l.offered_slots).toHaveLength(3);
+  });
+
   it("flags the lead for a human when the model fails, instead of replying with something unchecked", async () => {
     llm.extract.mockRejectedValueOnce(new Error("Output failed validation after one repair attempt"));
     const { leadId } = await ingest({ channel: "email", external_id: randomUUID(), sender: { id: `y${randomUUID()}@example.com` }, text: "hi" });
