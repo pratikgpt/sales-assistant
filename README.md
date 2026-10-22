@@ -6,7 +6,7 @@ replies on the channel it came from. Each lead is qualified against an editable 
 one of two reps by explicit rules, and offered real slots from that rep's Google Calendar. An event is created only
 after the customer confirms a specific slot. A human can take over any conversation.
 
-**Live URL:** _to be added after deployment_ · **Demo password:** _shared with the submission_
+**Live URL:** https://sales-assistant-jade.vercel.app · **Demo password:** shared with the submission (the dashboard shows real conversations)
 
 ## Integration status
 
