@@ -12,7 +12,7 @@ after the customer confirms a specific slot. A human can take over any conversat
 
 | Channel | Approach | Status |
 |---|---|---|
-| WhatsApp | WhatsApp Cloud API: webhook in, `POST /{phone-number-id}/messages` out | **Working** (verified 22 Oct 2026: one message qualified, routed to Asha by RT3, three free slots from her calendar offered; delivery receipts update message status) |
+| WhatsApp | WhatsApp Cloud API: webhook in, `POST /{phone-number-id}/messages` out | **Partly working.** Inbound verified 22 Oct 2026 (message received, qualified, routed to Asha by RT3, three free slots from her calendar chosen). **Outbound blocked by Meta:** the reply was accepted by the API, then the delivery webhook reported "Business Account locked". The account's `health_status` lists error 131000 (business profile missing legal name, country, website), 141006 (payment method) and 141010 (business not verified). The dashboard shows the failed delivery on the message. |
 | Instagram | Instagram API with Instagram Login: webhook in, `POST graph.instagram.com/me/messages` out | **Working** (verified 22 Oct 2026: DM in, qualified, routed, reply delivered; read receipts and echoes ignored) |
 | Email | Gmail over IMAP (polled) and SMTP (replies), app password | _to be verified live_ |
 | Calendar | Google Calendar API with a service account; each rep's test calendar is shared with it | **Working** (verified 22 Oct 2026: Instagram lead offered 3 free slots from Daniel's calendar, picked one, confirmed, event created; a second "YES" created no duplicate) |
