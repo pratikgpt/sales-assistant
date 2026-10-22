@@ -81,8 +81,12 @@ export function pickSlots(policy: Policy, now: Date, busy: Interval[]): Slot[] {
     const day = localDate(new Date(s.start), policy.timezone);
     byDay.set(day, [...(byDay.get(day) ?? []), s]);
   }
-  // Per day: earliest slot, then one mid-afternoon, then the rest. Take one per day per pass.
-  const queues = [...byDay.values()].map((slots) => [...new Set([slots[0], slots[Math.floor(slots.length / 2)], ...slots])]);
+  // One slot per day per pass, alternating the earliest slot and one mid-day, so offers vary in time
+  // of day as well as date ("Fri 10:00, Mon 14:00, Tue 10:00") rather than the same hour each day.
+  const queues = [...byDay.values()].map((slots, i) => {
+    const mid = slots[Math.floor(slots.length / 2)];
+    return [...new Set(i % 2 ? [mid, slots[0], ...slots] : [slots[0], mid, ...slots])];
+  });
   const picked: Slot[] = [];
   while (picked.length < policy.meeting.slots_to_offer && queues.some((q) => q.length)) {
     for (const q of queues) {
@@ -97,10 +101,16 @@ export function isFree(slot: Slot, busy: Interval[]): boolean {
   return !busy.some((b) => overlaps(slot, b));
 }
 
-/** "Tue 27 Oct, 3:00 PM IST" in the business timezone. */
-export function formatSlot(slot: Slot, tz: string): string {
+/** "Tue 27 Oct, 3:00 PM" in the business timezone, optionally with the zone ("GMT+5:30"). */
+export function formatSlot(slot: Slot, tz: string, withZone = true): string {
   const d = new Date(slot.start);
   const date = new Intl.DateTimeFormat("en-GB", { timeZone: tz, weekday: "short", day: "numeric", month: "short" }).format(d);
-  const time = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(d);
+  const time = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", ...(withZone ? { timeZoneName: "short" } : {}) }).format(d);
   return `${date}, ${time}`;
+}
+
+/** "India Standard Time" for a list footer, so each listed time does not repeat the zone. */
+export function zoneName(tz: string): string {
+  const part = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "long" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName");
+  return part?.value ?? tz;
 }
