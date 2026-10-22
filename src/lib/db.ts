@@ -49,6 +49,7 @@ create table if not exists leads (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table leads add column if not exists attention text;
 
 create table if not exists messages (
   id uuid primary key default gen_random_uuid(),
