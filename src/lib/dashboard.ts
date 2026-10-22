@@ -3,7 +3,7 @@ import { pollEmail, type EmailCursor } from "./channels/email";
 import { SendError } from "./channels/types";
 import { ensureSchema, json, logEvent, setIntegration, sql } from "./db";
 import { processLead } from "./engine";
-import { ingest, NotFoundError, sendReply, type ContactRow, type LeadRow } from "./store";
+import { getPolicy, ingest, NotFoundError, sendReply, type ContactRow, type LeadRow } from "./store";
 
 // Read models and human actions for the dashboard.
 
@@ -25,13 +25,14 @@ export async function leadDetail(id: string) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new NotFoundError("Lead not found");
   const [lead] = await sql<LeadRow[]>`select * from leads where id = ${id}`;
   if (!lead) throw new NotFoundError("Lead not found");
-  const [[contact], messages, events, bookings] = await Promise.all([
+  const [[contact], messages, events, bookings, policy] = await Promise.all([
     sql<ContactRow[]>`select * from contacts where id = ${lead.contact_id}`,
     sql`select id, direction, author, text, status, error, created_at from messages where lead_id = ${id} order by created_at`,
     sql`select id, level, kind, text, data, created_at from events where lead_id = ${id} order by id`,
     sql<BookingRow[]>`select * from bookings where lead_id = ${id} order by created_at`,
+    getPolicy(),
   ]);
-  return { lead, contact, messages, events, bookings };
+  return { lead, contact, messages, events, bookings, timezone: policy.data.timezone, policy_version: policy.version, services: policy.data.services.map((s) => ({ id: s.id, name: s.name })) };
 }
 
 export async function setTakeover(id: string, on: boolean) {
