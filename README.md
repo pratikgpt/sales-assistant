@@ -12,7 +12,7 @@ after the customer confirms a specific slot. A human can take over any conversat
 
 | Channel | Approach | Status |
 |---|---|---|
-| WhatsApp | WhatsApp Cloud API: webhook in, `POST /{phone-number-id}/messages` out | _to be verified live_ |
+| WhatsApp | WhatsApp Cloud API: webhook in, `POST /{phone-number-id}/messages` out | **Working** (verified 22 Oct 2026: one message qualified, routed to Asha by RT3, three free slots from her calendar offered; delivery receipts update message status) |
 | Instagram | Instagram API with Instagram Login: webhook in, `POST graph.instagram.com/me/messages` out | **Working** (verified 22 Oct 2026: DM in, qualified, routed, reply delivered; read receipts and echoes ignored) |
 | Email | Gmail over IMAP (polled) and SMTP (replies), app password | _to be verified live_ |
 | Calendar | Google Calendar API with a service account; each rep's test calendar is shared with it | **Working** (verified 22 Oct 2026: Instagram lead offered 3 free slots from Daniel's calendar, picked one, confirmed, event created; a second "YES" created no duplicate) |
@@ -115,6 +115,11 @@ Webhooks need a public HTTPS URL (the deployment, or a tunnel such as `cloudflar
    Generate token with `whatsapp_business_messaging` (the API Setup token expires after ~24 hours).
 3. **Configuration → Webhook**: callback `https://<host>/api/webhooks/whatsapp`, verify token = `WHATSAPP_VERIFY_TOKEN`,
    subscribe to `messages`. App secret (App settings → Basic) = `META_APP_SECRET`.
+4. **Subscribe the app to the WhatsApp Business Account.** Verifying the webhook does not do this, and until it is
+   done Meta sends nothing (the account was subscribed only to Meta's internal "WA DevX" app):
+   `curl -X POST "https://graph.facebook.com/v23.0/$WHATSAPP_BUSINESS_ACCOUNT_ID/subscribed_apps" -H "Authorization: Bearer $WHATSAPP_ACCESS_TOKEN"`
+5. WhatsApp often cannot find Meta's test number when you start a chat with it. Use **API Setup → Send message**
+   (the `hello_world` template) to open the chat from the test number, then reply to it.
 </details>
 
 <details>
@@ -165,7 +170,7 @@ Cron (the Hobby plan's limit). For minute-level polling without the dashboard op
 | `DATABASE_URL` | Postgres connection string |
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | Model access (server-side only); model defaults to `anthropic/claude-sonnet-5.5` |
 | `DASHBOARD_PASSWORD` | Shared password for the dashboard (it shows real conversations) |
-| `META_APP_SECRET`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN` | WhatsApp |
+| `META_APP_SECRET`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_VERIFY_TOKEN` | WhatsApp (the account id is only used for the subscription step) |
 | `INSTAGRAM_APP_SECRET`, `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID`, `INSTAGRAM_VERIFY_TOKEN` | Instagram |
 | `EMAIL_ADDRESS`, `EMAIL_APP_PASSWORD`, `EMAIL_IMAP_HOST`, `EMAIL_SMTP_HOST` | Email inbox |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`, `GOOGLE_CALENDAR_ID_REP_1`, `GOOGLE_CALENDAR_ID_REP_2` | Calendar |
