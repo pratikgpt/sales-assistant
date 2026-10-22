@@ -52,7 +52,18 @@ export interface EmailCursor {
  */
 export async function pollEmail(cursor: EmailCursor | null): Promise<{ messages: Inbound[]; cursor: EmailCursor }> {
   const c = config();
-  const client = new ImapFlow({ host: c.imapHost, port: 993, secure: true, auth: { user: c.user, pass: c.pass }, logger: false });
+  // Bounded timeouts: a slow Gmail login fails fast and is reported, instead of running into the
+  // serverless time limit; the next scheduled poll simply tries again.
+  const client = new ImapFlow({
+    host: c.imapHost,
+    port: 993,
+    secure: true,
+    auth: { user: c.user, pass: c.pass },
+    logger: false,
+    connectionTimeout: 15_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 30_000,
+  });
   try {
     await client.connect();
   } catch (e) {
