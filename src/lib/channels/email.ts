@@ -1,5 +1,5 @@
 import { ImapFlow } from "imapflow";
-import { simpleParser } from "mailparser";
+import { simpleParser, type AddressObject } from "mailparser";
 import nodemailer, { type Transporter } from "nodemailer";
 import { SendError, type EmailThread, type Inbound } from "./types";
 
@@ -13,12 +13,21 @@ function config() {
   return {
     user,
     pass,
+    // Optional dedicated address (e.g. name+sales@gmail.com) so a personal mailbox can be used safely:
+    // only mail sent to it is read, and replies come from it.
+    onlyTo: process.env.EMAIL_ONLY_TO?.trim().toLowerCase() || null,
     imapHost: process.env.EMAIL_IMAP_HOST || "imap.gmail.com",
     smtpHost: process.env.EMAIL_SMTP_HOST || "smtp.gmail.com",
   };
 }
 
 const isAuthError = (e: unknown) => /auth|credential|invalid login|535|AUTHENTICATIONFAILED/i.test(String((e as Error)?.message ?? e));
+
+/** True if the message was sent (To or Cc) to `address` exactly. */
+export function addressedTo(mail: { to?: AddressObject | AddressObject[]; cc?: AddressObject | AddressObject[] }, address: string): boolean {
+  const lists = [mail.to, mail.cc].flat().filter(Boolean) as AddressObject[];
+  return lists.some((l) => l.value.some((a) => a.address?.toLowerCase() === address));
+}
 
 /** Keeps only the new part of a reply: drops quoted history and common signatures. */
 export function stripQuoted(text: string): string {
@@ -54,7 +63,9 @@ export async function pollEmail(cursor: EmailCursor | null): Promise<{ messages:
     const box = client.mailbox as { uidValidity: bigint; uidNext: number };
     const validity = String(box.uidValidity);
     const fresh = !cursor || cursor.uid_validity !== validity;
-    const search = fresh ? { seen: false, since: new Date(Date.now() - 3 * 86400_000) } : { uid: `${cursor.last_uid + 1}:*` };
+    // With EMAIL_ONLY_TO the server only returns mail sent to that address; nothing else is fetched.
+    const scope = c.onlyTo ? { to: c.onlyTo } : {};
+    const search = fresh ? { seen: false, since: new Date(Date.now() - 3 * 86400_000), ...scope } : { uid: `${cursor.last_uid + 1}:*`, ...scope };
     const uids = ((await client.search(search, { uid: true })) || []).filter((u) => fresh || u > cursor!.last_uid);
 
     const messages: Inbound[] = [];
@@ -67,7 +78,10 @@ export async function pollEmail(cursor: EmailCursor | null): Promise<{ messages:
       const from = mail.from?.value[0];
       const auto = mail.headers.get("auto-submitted");
       const bulk = /bulk|list|junk/i.test(String(mail.headers.get("precedence") ?? "")) || mail.headers.has("list-id");
-      if (!from?.address || from.address.toLowerCase() === c.user.toLowerCase() || (auto && auto !== "no") || bulk) continue;
+      const own = [c.user.toLowerCase(), c.onlyTo].includes(from?.address?.toLowerCase() ?? null);
+      // IMAP TO search is a substring match, so confirm the exact recipient before touching the message.
+      if (c.onlyTo && !addressedTo(mail, c.onlyTo)) continue;
+      if (!from?.address || own || (auto && auto !== "no") || bulk) continue;
       const refs = mail.references ? (Array.isArray(mail.references) ? mail.references : [mail.references]) : [];
       messages.push({
         channel: "email",
@@ -93,7 +107,7 @@ export async function sendEmail(to: string, text: string, thread: EmailThread): 
   const subject = thread.subject ? (/^re:/i.test(thread.subject) ? thread.subject : `Re: ${thread.subject}`) : "Your enquiry";
   try {
     const info = await transport.sendMail({
-      from: c.user,
+      from: c.onlyTo ?? c.user,
       to,
       subject,
       text,

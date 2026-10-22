@@ -149,8 +149,11 @@ Three things that are easy to miss (each one silently stopped DMs from arriving 
 <details>
 <summary><b>Email (Gmail)</b></summary>
 
-Create a dedicated Gmail account, turn on 2-step verification and create an **app password**
-(myaccount.google.com/apppasswords). The dashboard polls every 30 s while open; `vercel.json` adds a daily Vercel
+Turn on 2-step verification and create an **app password** (myaccount.google.com/apppasswords). Google often
+refuses this on brand-new accounts ("We couldn't verify that it's you"), so an established account works better.
+To use one safely, set `EMAIL_ONLY_TO` to a plus address such as `yourname+sales@gmail.com`: the IMAP search only
+returns mail sent to it, each message's To/Cc is checked exactly, other mail is never fetched or marked read, and
+replies are sent from that address. The dashboard polls every 30 s while open; `vercel.json` adds a daily Vercel
 Cron (the Hobby plan's limit). For minute-level polling without the dashboard open, point any scheduler at
 `GET /api/email/poll` with `Authorization: Bearer $CRON_SECRET`.
 </details>

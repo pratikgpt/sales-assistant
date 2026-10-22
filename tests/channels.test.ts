@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { parseWhatsApp } from "@/lib/channels/whatsapp";
 import { parseInstagram } from "@/lib/channels/instagram";
-import { stripQuoted } from "@/lib/channels/email";
+import { addressedTo, stripQuoted } from "@/lib/channels/email";
 import { verifyMetaSignature } from "@/lib/channels/types";
 import { verifyEvidence, type Extraction } from "@/lib/assistant";
 
@@ -52,6 +52,15 @@ describe("Instagram webhook parsing", () => {
 });
 
 describe("email", () => {
+  const box = (...addrs: string[]) => ({ value: addrs.map((address) => ({ address, name: "" })), html: "", text: "" });
+  it("only accepts mail sent exactly to the dedicated address", () => {
+    expect(addressedTo({ to: box("Me+Sales@gmail.com") }, "me+sales@gmail.com")).toBe(true);
+    expect(addressedTo({ to: box("me@gmail.com"), cc: box("me+sales@gmail.com") }, "me+sales@gmail.com")).toBe(true);
+    expect(addressedTo({ to: box("me@gmail.com") }, "me+sales@gmail.com")).toBe(false);
+    expect(addressedTo({ to: box("notme+sales@gmail.com") }, "me+sales@gmail.com")).toBe(false);
+    expect(addressedTo({}, "me+sales@gmail.com")).toBe(false);
+  });
+
   it("drops quoted history from replies", () => {
     expect(stripQuoted("Tuesday works.\n\nOn Mon, 26 Oct 2026 at 10:00, Quillfield wrote:\n> Which time suits you?")).toBe("Tuesday works.");
   });
