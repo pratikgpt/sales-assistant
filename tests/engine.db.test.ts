@@ -84,6 +84,8 @@ describe("conversation engine", () => {
     expect(l.stage).toBe("offering");
     expect(l.offered_slots).toHaveLength(3);
     expect(l.fields.budget_usd.quote).toBe("$12,000");
+    // The model sees known values only, never stored database message ids it could cite by mistake.
+    expect(llm.extract.mock.calls[1][0].known).toEqual({ company: "Acme Retail", service: "forecasting" });
     expect((await lastReply(leadId)).text).toMatch(/^<intro_slots>\n\n1\. .+\n2\. .+\n3\. /);
 
     await customer("whatsapp", wa, "Option 2 please", { ...none, slot_choice: 2 });
@@ -99,6 +101,7 @@ describe("conversation engine", () => {
     expect((await lastReply(leadId)).text).toMatch(/^You're booked: 30-minute intro call with Daniel Okafor/);
 
     await customer("whatsapp", wa, "YES confirm!!", { ...none, confirmation: "yes" });
+    expect(llm.extract.mock.calls.at(-1)![0].booked).toMatch(/^\w{3} \d+ \w{3}, /);
     expect(cal.insertEvent).toHaveBeenCalledTimes(1);
     expect((await lastReply(leadId)).text).toMatch(/already booked/);
   });

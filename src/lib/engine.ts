@@ -5,7 +5,7 @@ import { json, logEvent, setIntegration, sql } from "./db";
 import type { Usage } from "./llm";
 import type { LeadField } from "./policy";
 import { qualify, route, type Assignment, type LeadFields } from "./qualify";
-import { formatSlot, pickSlots, type Slot } from "./slots";
+import { formatSlot, pickSlots, zoneName, type Slot } from "./slots";
 import { CHANNEL_LABEL, getPolicy, sendReply, type ContactRow, type LeadRow, type Stage } from "./store";
 
 // One customer turn: extract -> qualify -> route -> decide the next step -> reply on the same channel.
@@ -73,12 +73,15 @@ async function runTurn(lead: LeadRow): Promise<void> {
   const tz = policy.timezone;
 
   // 1. Extract evidence and keep only what is verifiably quoted.
+  const [booked] = await sql<{ slot_start: Date }[]>`select slot_start from bookings where lead_id = ${lead.id} and status = 'confirmed'`;
   const ex = await extract({
     policy,
     history,
-    known: lead.fields,
+    // Values only: stored evidence holds database message ids, which the model would copy instead of M#.
+    known: Object.fromEntries(Object.entries(lead.fields).map(([k, v]) => [k, v!.value])),
     offeredSlots: lead.stage === "offering" || lead.stage === "confirming" ? lead.offered_slots.map((s) => formatSlot(s, tz)) : [],
     pendingSlot: lead.pending_slot ? formatSlot(lead.pending_slot, tz) : null,
+    booked: booked ? formatSlot({ start: new Date(booked.slot_start).toISOString(), end: "" }, tz) : null,
   });
   await setIntegration("llm", "ok");
   const verified = verifyEvidence(ex.data, history, policy.services.map((s) => s.id));
@@ -114,7 +117,7 @@ async function runTurn(lead: LeadRow): Promise<void> {
   let tail: string | null = null; // fixed text appended by code (times, confirmations)
   const rep = assignment?.rep_name ?? "our team";
 
-  const listSlots = (slots: Slot[]) => slots.map((s, i) => `${i + 1}. ${formatSlot(s, tz)}`).join("\n");
+  const listSlots = (slots: Slot[]) => slots.map((s, i) => `${i + 1}. ${formatSlot(s, tz, false)}`).join("\n");
   const confirmPrompt = (s: Slot) => `To confirm: a ${policy.meeting.duration_minutes}-minute intro call with ${rep} on ${formatSlot(s, tz)}. Reply YES to book it, or tell me another option.`;
 
   async function offer(prefix?: string) {
@@ -137,7 +140,7 @@ async function runTurn(lead: LeadRow): Promise<void> {
       pending = null;
       stage = "offering";
       if (!prefix) goal = { kind: "intro_slots", rep };
-      tail = `${prefix ? prefix + "\n" : ""}${listSlots(slots)}\n\nReply with the number of the time that suits you (all times ${tz.replace("_", " ")}).`;
+      tail = `${prefix ? prefix + "\n" : ""}${listSlots(slots)}\n\nReply with the number of the time that suits you (times are ${zoneName(tz)}).`;
       await logEvent(sql, lead.id, "info", "slots", `Offered ${slots.length} times from ${rep}'s calendar`, slots.map((s) => formatSlot(s, tz)));
     } catch (e) {
       const err = e as CalendarError;
