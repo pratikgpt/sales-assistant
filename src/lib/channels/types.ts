@@ -29,12 +29,18 @@ export class SendError extends Error {
 
 export const GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v23.0";
 
-/** Meta signs webhook bodies with the app secret (X-Hub-Signature-256: sha256=<hex>). */
-export function verifyMetaSignature(rawBody: string, header: string | null, secret: string | undefined): boolean {
-  if (!secret || !header?.startsWith("sha256=")) return false;
-  const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest();
+/**
+ * Meta signs webhook bodies with an app secret (X-Hub-Signature-256: sha256=<hex>). Instagram Login
+ * apps have two (the Meta app secret and the Instagram app secret), so any configured one may match.
+ */
+export function verifyMetaSignature(rawBody: string, header: string | null, ...secrets: (string | undefined)[]): boolean {
+  if (!header?.startsWith("sha256=")) return false;
   const given = Buffer.from(header.slice(7), "hex");
-  return given.length === expected.length && timingSafeEqual(given, expected);
+  return secrets.some((secret) => {
+    if (!secret) return false;
+    const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest();
+    return given.length === expected.length && timingSafeEqual(given, expected);
+  });
 }
 
 /** Meta's error code 190 (and HTTP 401) mean the access token expired or was revoked. */

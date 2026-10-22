@@ -10,11 +10,15 @@ describe("webhook signatures", () => {
   const body = JSON.stringify({ hello: "world" });
   const sig = "sha256=" + createHmac("sha256", "s3cret").update(body).digest("hex");
   it("accepts a correctly signed body", () => expect(verifyMetaSignature(body, sig, "s3cret")).toBe(true));
+  it("accepts a signature from any of the app's configured secrets", () => {
+    expect(verifyMetaSignature(body, sig, undefined, "other", "s3cret")).toBe(true);
+  });
   it("rejects a tampered body, wrong secret or missing header", () => {
     expect(verifyMetaSignature(body + " ", sig, "s3cret")).toBe(false);
     expect(verifyMetaSignature(body, sig, "other")).toBe(false);
     expect(verifyMetaSignature(body, null, "s3cret")).toBe(false);
     expect(verifyMetaSignature(body, sig, undefined)).toBe(false);
+    expect(verifyMetaSignature(body, sig)).toBe(false);
   });
 });
 

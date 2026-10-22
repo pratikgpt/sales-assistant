@@ -15,11 +15,20 @@ export function GET(req: Request) {
 export async function POST(req: Request) {
   await ensureSchema();
   const raw = await req.text();
-  if (!verifyMetaSignature(raw, req.headers.get("x-hub-signature-256"), process.env.INSTAGRAM_APP_SECRET)) {
+  if (!verifyMetaSignature(raw, req.headers.get("x-hub-signature-256"), process.env.META_APP_SECRET, process.env.INSTAGRAM_APP_SECRET)) {
     await logEvent(sql, null, "warn", "webhook", "Rejected an Instagram webhook with an invalid signature");
     return new NextResponse("Invalid signature", { status: 401 });
   }
-  const messages = parseInstagram(JSON.parse(raw));
+  const body = JSON.parse(raw);
+  const messages = parseInstagram(body);
+  if (!messages.length) {
+    // Echoes, read receipts and dashboard test events carry no customer message; record what came in.
+    const kinds = (body.entry ?? []).flatMap((e: { messaging?: Record<string, unknown>[]; changes?: { field: string }[] }) => [
+      ...(e.messaging ?? []).map((m) => Object.keys(m).filter((k) => !["sender", "recipient", "timestamp"].includes(k)).join("+")),
+      ...(e.changes ?? []).map((c) => `changes:${c.field}`),
+    ]);
+    await logEvent(sql, null, "info", "webhook", `Instagram webhook with no customer message (${kinds.join(", ") || "empty"})`);
+  }
   const leads = new Set<string>();
   for (const m of messages) {
     const { leadId, duplicate } = await ingest(m);
