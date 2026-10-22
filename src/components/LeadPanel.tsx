@@ -124,7 +124,7 @@ export function LeadPanel({ detail, busy, onRetry, onCheckBooking }: { detail: L
                         : r.field === "service"
                           ? (detail.services.find((s) => s.id === r.evidence!.value)?.name ?? "Not a service we offer")
                           : String(r.evidence.value)}
-                      {r.field === "timeline_months" && typeof r.evidence.value === "number" ? " months" : ""} · <q className="italic">{r.evidence.quote}</q>
+                      {r.field === "timeline_months" && typeof r.evidence.value === "number" ? (r.evidence.value === 1 ? " month" : " months") : ""} · <q className="italic">{r.evidence.quote}</q>
                     </div>
                   ) : (
                     <div className="text-[13px] text-slate-500">Not provided yet</div>
